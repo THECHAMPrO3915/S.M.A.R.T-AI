@@ -13,8 +13,7 @@ from fpdf import FPDF
 # ==========================================================
 # ⚙️ CONFIGURATION
 # ==========================================================
-# NOTE: Avoid hardcoding keys in public scripts. Use environment variables if possible.
-GROQ_API_KEY = "PASTE_YOUR_GROQ_KEY_HERE"
+GROQ_API_KEY = "your_key_here"
 
 class UniversalAgent:
     def __init__(self, api_key):
@@ -33,127 +32,104 @@ class UniversalAgent:
         except Exception as e:
             return "{}" if is_json else f"Error: {e}"
 
-    # --- 🎨 IMAGE GENERATION ---
-    def generate_image(self, prompt):
-        print(f"--- 🎨 Generating Image: {prompt} ---")
+    # --- 🎨 INTERNAL: IMAGE GEN (FOR PPT/PDF) ---
+    def _generate_temp_image(self, prompt):
         try:
-            url = f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '_')}?width=1024&height=1024&nologo=true"
+            url = f"https://image.pollinations.ai/prompt/{prompt.replace(' ', '_')}?width=800&nologo=true"
             r = self.session.get(url)
-            filename = f"IMG_{int(time.time())}.jpg"
-            with open(filename, "wb") as f:
+            temp_name = f"temp_{int(time.time())}.jpg"
+            with open(temp_name, "wb") as f:
                 f.write(r.content)
-            return filename, f"✅ Image saved as: {filename}"
-        except Exception as e:
-            return None, f"❌ Image Error: {e}"
+            return temp_name
+        except: return None
 
-    # --- 📝 WORD GENERATION ---
-    def create_word(self, topic, filename):
-        print(f"--- 📝 Creating Word: {topic} ---")
-        try:
-            if not filename.endswith(".docx"): filename += ".docx"
-            doc = Document()
-            doc.add_heading(topic, 0)
-            content = self.get_text(f"Write a comprehensive report about {topic}.")
-            doc.add_paragraph(content)
-            doc.save(filename)
-            return f"✅ Word document saved as: {filename}"
-        except Exception as e: return f"❌ Word Error: {e}"
-
-    # --- 📊 EXCEL GENERATION ---
-    def create_excel(self, topic, filename):
-        print(f"--- 📊 Creating Excel: {topic} ---")
-        try:
-            if not filename.endswith(".xlsx"): filename += ".xlsx"
-            data_prompt = f"Provide a dataset for {topic} with 5 rows. Return JSON ONLY: {{'columns': ['Col1', 'Col2'], 'data': [['val1', 'val2'], ['val3', 'val4']]}}"
-            raw_data = json.loads(self.get_text(data_prompt, is_json=True))
-            df = pd.DataFrame(raw_data['data'], columns=raw_data['columns'])
-            df.to_excel(filename, index=False)
-            return f"✅ Excel saved as: {filename}"
-        except Exception as e: return f"❌ Excel Error: {e}"
-
-    # --- 📄 PDF GENERATION WITH IMAGES ---
+    # --- 📄 PDF GENERATION ---
     def create_pdf(self, topic, filename):
-        print(f"--- 📄 Creating PDF: {topic} ---")
         try:
-            if not filename.endswith(".pdf"): filename += ".pdf"
-            img_path, _ = self.generate_image(f"Educational illustration of {topic}")
-            
+            if not filename.endswith(".pdf"): filename = f"{topic.replace(' ', '_')}_{int(time.time())}.pdf"
             pdf = FPDF()
             pdf.add_page()
             pdf.set_font("helvetica", 'B', 16)
-            pdf.cell(0, 10, txt=topic, ln=True, align='C')
+            pdf.cell(0, 10, txt=topic.upper(), ln=True, align='C')
             
-            if img_path:
-                pdf.image(img_path, x=10, y=30, w=180)
-                pdf.set_y(150) # Move text below image
-            
-            pdf.set_font("helvetica", size=12)
-            content = self.get_text(f"Summarize the core concepts of {topic} in 3 paragraphs.")
-            pdf.multi_cell(0, 10, txt=content)
-            
-            pdf.output(filename)
-            if img_path: os.remove(img_path) # Clean up temp image
-            return f"✅ PDF with image saved as: {filename}"
-        except Exception as e: return f"❌ PDF Error: {e}"
+            # Add a visual
+            img = self._generate_temp_image(f"visual of {topic}")
+            if img:
+                pdf.image(img, x=10, y=30, w=180)
+                pdf.set_y(150)
+                os.remove(img)
 
-    # --- 📽️ PPT GENERATION WITH IMAGES ---
-    def create_ppt(self, topic, filename, slides=5):
-        print(f"--- 📽️ Creating {slides}-Slide PPT: {topic} ---")
+            pdf.set_font("helvetica", size=12)
+            pdf.multi_cell(0, 10, txt=self.get_text(f"Write a 3-paragraph report on {topic}"))
+            pdf.output(filename)
+            return {"message": f"✅ PDF Created: {topic}", "file_path": filename}
+        except Exception as e: return {"message": f"❌ PDF Error: {e}", "file_path": None}
+
+    # --- 📽️ PPT GENERATION ---
+    def create_ppt(self, topic, filename, slides=3):
         try:
-            if not filename.endswith(".pptx"): filename += ".pptx"
+            if not filename.endswith(".pptx"): filename = f"{topic.replace(' ', '_')}_{int(time.time())}.pptx"
             prs = Presentation()
-            
             for i in range(slides):
                 slide = prs.slides.add_slide(prs.slide_layouts[1])
-                slide.shapes.title.text = f"{topic}: Slide {i+1}"
-                
-                # Add text
-                info = self.get_text(f"Write 3 bullet points for a slide about {topic} - part {i+1}.")
-                slide.placeholders[1].text = info
-                
-                # Add image to every slide
-                img_path, _ = self.generate_image(f"Visualizing {topic} aspect {i+1}")
-                if img_path:
-                    slide.shapes.add_picture(img_path, Inches(6), Inches(2), width=Inches(3.5))
-                    os.remove(img_path)
-
+                slide.shapes.title.text = f"{topic} - Slide {i+1}"
+                slide.placeholders[1].text = self.get_text(f"Bullet points for {topic}, part {i+1}")
             prs.save(filename)
-            return f"✅ PPT with images saved as: {filename}"
-        except Exception as e: return f"❌ PPT Error: {e}"
+            return {"message": f"✅ PPT Created: {topic}", "file_path": filename}
+        except Exception as e: return {"message": f"❌ PPT Error: {e}", "file_path": None}
 
-    # --- 🧠 DISPATCHER ---
+    # --- 📊 EXCEL GENERATION ---
+    def create_excel(self, topic, filename):
+        try:
+            if not filename.endswith(".xlsx"): filename = f"{topic.replace(' ', '_')}_{int(time.time())}.xlsx"
+            data = json.loads(self.get_text(f"Table data for {topic}. JSON: {{'cols':['A','B'],'rows':[['1','2']]}}", is_json=True))
+            df = pd.DataFrame(data['rows'], columns=data['cols'])
+            df.to_excel(filename, index=False)
+            return {"message": f"✅ Excel Created: {topic}", "file_path": filename}
+        except Exception as e: return {"message": f"❌ Excel Error: {e}", "file_path": None}
+
+    # --- 📝 WORD GENERATION ---
+    def create_word(self, topic, filename):
+        try:
+            if not filename.endswith(".docx"): filename = f"{topic.replace(' ', '_')}_{int(time.time())}.docx"
+            doc = Document()
+            doc.add_heading(topic, 0)
+            doc.add_paragraph(self.get_text(f"Write a report about {topic}"))
+            doc.save(filename)
+            return {"message": f"✅ Word Doc Created: {topic}", "file_path": filename}
+        except Exception as e: return {"message": f"❌ Word Error: {e}", "file_path": None}
+
+    # --- 🧠 DISPATCHER (RETURNS JSON DATA) ---
     def handle_request(self, user_prompt):
         brain_p = f"""
-        Analyze: "{user_prompt}"
-        Identify Tool:
-        - 'image': create/generate a picture/visual.
-        - 'word': make a word document/report.
-        - 'excel': make a spreadsheet/table/excel.
-        - 'pdf': create/make a PDF file.
-        - 'ppt': create a powerpoint/slides.
-        - 'text': general chat.
-        Return JSON ONLY: {{"tool": "...", "subject": "...", "file": "filename.ext"}}
+        User Prompt: "{user_prompt}"
+        Identify: tool (pdf, ppt, excel, word, text), subject, filename.
+        Return JSON ONLY: {{"tool": "...", "subject": "...", "file": "..."}}
         """
         try:
             res = json.loads(self.get_text(brain_p, is_json=True))
-            tool, subject, file = res.get('tool'), res.get('subject'), res.get('file', 'document')
+            t, s, f = res.get('tool'), res.get('subject'), res.get('file', 'output')
 
-            if tool == 'image': return self.generate_image(subject)[1]
-            if tool == 'word': return self.create_word(subject, file)
-            if tool == 'excel': return self.create_excel(subject, file)
-            if tool == 'pdf': return self.create_pdf(subject, file)
-            if tool == 'ppt': return self.create_ppt(subject, file)
-            
-            return self.get_text(user_prompt)
-        except: return self.get_text(user_prompt)
+            # Route to correct tool
+            if t == 'pdf': result = self.create_pdf(s, f)
+            elif t == 'ppt': result = self.create_ppt(s, f)
+            elif t == 'excel': result = self.create_excel(s, f)
+            elif t == 'word': result = self.create_word(s, f)
+            else: result = {"message": self.get_text(user_prompt), "file_path": None}
+
+            return json.dumps(result) # Return as string for your app to parse
+        except:
+            return json.dumps({"message": self.get_text(user_prompt), "file_path": None})
 
 # --- 🏁 MAIN ---
 if __name__ == "__main__":
     agent = UniversalAgent(GROQ_API_KEY)
-    print("--- 🤖 Universal Omni-Agent Online ---")
+    print("--- 🤖 Omni-Agent (Download Ready) ---")
     while True:
-        try:
-            inp = input("\nYou: ").strip()
-            if not inp or inp.lower() in ['exit', 'quit']: break
-            print(f"Agent: {agent.handle_request(inp)}")
-        except KeyboardInterrupt: break
+        inp = input("\nYou: ").strip()
+        if not inp: break
+        # The output here is a JSON string containing the file path!
+        response_data = json.loads(agent.handle_request(inp))
+        print(f"Agent Message: {response_data['message']}")
+        if response_data['file_path']:
+            print(f"Download Link: ./{response_data['file_path']}")
