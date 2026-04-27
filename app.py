@@ -2,6 +2,8 @@ import streamlit as st
 import streamlit_authenticator as stauth
 import yaml
 from yaml.loader import SafeLoader
+import os
+import json
 from omni_agent import UniversalAgent
 
 # 1. Page Configuration
@@ -16,7 +18,6 @@ authenticator = stauth.Authenticate(
     config['cookie']['key'], config['cookie']['expiry_days']
 )
 
-# 3. Login Flow
 authenticator.login()
 
 if st.session_state["authentication_status"]:
@@ -49,19 +50,37 @@ if st.session_state["authentication_status"]:
     # --- MAIN INTERFACE ---
     st.title(f"🤖 {st.session_state.current_chat}")
 
-    # Render History
+    # Render History with Download Logic
     for msg in st.session_state.sessions[st.session_state.current_chat]:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            # The button only appears if 'file_path' exists in the message data
+            if "file_path" in msg and os.path.exists(msg["file_path"]):
+                with open(msg["file_path"], "rb") as f:
+                    st.download_button(
+                        label=f"⬇️ Download {os.path.basename(msg['file_path'])}",
+                        data=f,
+                        file_name=os.path.basename(msg["file_path"]),
+                        mime="application/octet-stream"
+                    )
 
     # Chat Input
     if prompt := st.chat_input("Initiate command..."):
         st.session_state.sessions[st.session_state.current_chat].append({"role": "user", "content": prompt})
         
-        # Get response from your agent
-        response = st.session_state.agent.handle_request(prompt)
+        # Call agent and parse the JSON string response
+        json_response = st.session_state.agent.handle_request(prompt)
+        data = json.loads(json_response)
         
-        st.session_state.sessions[st.session_state.current_chat].append({"role": "assistant", "content": response})
+        # Extract message and path
+        response_text = data.get("message", "Request processed.")
+        file_path = data.get("file_path")
+            
+        msg_data = {"role": "assistant", "content": response_text}
+        if file_path:
+            msg_data["file_path"] = file_path
+            
+        st.session_state.sessions[st.session_state.current_chat].append(msg_data)
         st.rerun()
 
 elif st.session_state["authentication_status"] is False:
