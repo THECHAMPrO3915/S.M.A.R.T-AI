@@ -14,7 +14,7 @@ from fpdf import FPDF
 # ==========================================================
 # ⚙️ CONFIGURATION
 # ==========================================================
-GROQ_API_KEY = "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"
+GROQ_API_KEY = "your_key_here"
 
 class UniversalAgent:
     def __init__(self, api_key):
