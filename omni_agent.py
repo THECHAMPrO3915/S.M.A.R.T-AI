@@ -20,7 +20,7 @@ class UniversalAgent:
     def __init__(self, api_key):
         self.client = Groq(api_key=api_key, timeout=45.0) # Bumped timeout slightly for the 120B model
         # Switched to the OpenAI Open-Weight model hosted on Groq
-        self.model = "openai/gpt-oss-120b"
+        self.model = "llama-3.3-70b-versatile"
         self.session = requests.Session()
 
     def get_text(self, prompt, is_json=False):
