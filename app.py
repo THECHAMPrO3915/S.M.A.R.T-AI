@@ -23,7 +23,7 @@ authenticator.login()
 if st.session_state["authentication_status"]:
     # --- INITIALIZATION ---
     if "agent" not in st.session_state:
-        st.session_state.agent = UniversalAgent("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")
+        st.session_state.agent = UniversalAgent("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")
     if "sessions" not in st.session_state:
         st.session_state.sessions = {"Chat 1": []}
     if "current_chat" not in st.session_state:
