@@ -1,0 +1,10 @@
+streamlit
+openai
+pandas
+python-docx
+python-pptx
+fpdf2
+pypdf
+openpyxl
+python-dotenv
+requests
