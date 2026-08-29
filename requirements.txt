@@ -8,3 +8,4 @@ pypdf
 openpyxl
 python-dotenv
 requests
+PyYAML
