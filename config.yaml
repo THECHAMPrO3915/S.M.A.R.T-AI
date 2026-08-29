@@ -1,10 +1,6 @@
 credentials:
-  usernames:
-    smart_admin:
-      email: smart_admin
-      name: Administrator
-      password: "$2b$12$4iS4CnNipT0LAnPYyalurua.XbkM4VEllFNDVRSvHJf7gkJqQp0um"
-cookie:
-  name: jarvis_session
-  key: random_signature_key_123
-  expiry_days: 30
+  users:
+    smart_admin: "admin123"
+
+groq:
+  default_api_key: "YOUR_GROQ_API_KEY_HERE"
